@@ -1,0 +1,295 @@
+A51 MACRO ASSEMBLER  BACKUPASSEMBLY                                                       05/19/2024 23:30:17 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+NO OBJECT MODULE REQUESTED
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE Backupassembly.a51 SET(SMALL) DEBUG PRINT(.\Listings\Backupassembly.lst
+                      ) OBJECT(.\Objects\Backupassembly.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     ;Definição das constantes
+                       2     
+                       3     ;Display 1
+  0090                 4     D1 EQU P1
+  0090                 5     D1A EQU P1.0
+  0091                 6     D1B EQU P1.1
+  0092                 7     D1C EQU P1.2
+  0093                 8     D1D EQU P1.3
+  0094                 9     D1E EQU P1.4
+  0095                10     D1F EQU P1.5
+  0096                11     D1G EQU P1.6
+  0097                12     D1DP EQU P1.7
+                      13             
+                      14     ;Display 2
+  00A0                15     D2 EQU P2
+  00A0                16     D2A EQU P2.0
+  00A1                17     D2B EQU P2.1
+  00A2                18     D2C EQU P2.2
+  00A3                19     D2D EQU P2.3
+  00A4                20     D2E EQU P2.4
+  00A5                21     D2F EQU P2.5
+  00A6                22     D2G EQU P2.6
+  00A7                23     D2DP EQU P2.7
+                      24     
+                      25     ;inputs
+  00B0                26     Inputs EQU P3
+  00B2                27     B1 EQU P3.2 ;Botão 1
+  00B3                28     BResposta EQU P3.3      ;PIN de qualquer resposta
+  00B4                29     BA EQU P3.4     ;Botão A
+  00B5                30     BB EQU P3.5 ;Botão B
+  00B6                31     BC EQU P3.6     ;Botão C
+  00B7                32     BD EQU P3.7     ;Botão D
+                      33     
+                      34     ;Timer
+  00F0                35     TempoL EQU 0xF0
+  00D8                36     TempoH EQU 0xD8
+  000A                37     TempoInicial EQU 0x0A
+                      38     
+                      39     ;funcao principal
+0000                  40     ORG 0000h 
+0000 804E             41     JMP Inicio
+                      42     
+                      43     ;Tratar interrupção externa 0
+----                  44     CSEG AT 0003h
+0003 0187             45     JMP InterrupcaoBotao1
+                      46     
+                      47     ;Tratar interrupção externa 1
+----                  48     CSEG AT 0013h
+0013 8066             49     JMP InterrupcaoBotaoResposta
+                      50     
+                      51     
+                      52     ;Tratar a interrupcao de temporizavao 0, para contar 10ms
+----                  53     CSEG AT 000Bh
+000B 018F             54     JMP InterrupcaoTemp0
+                      55     
+                      56     
+                      57     
+A51 MACRO ASSEMBLER  BACKUPASSEMBLY                                                       05/19/2024 23:30:17 PAGE     2
+
+----                  58     CSEG AT 0050h
+0050                  59     Inicio:
+0050 758107           60             MOV SP, #7 ;endereco inicial do stak pointer
+0053 115B             61             CALL Inicializacoes ;chama a rotina de inicializacoes
+0055 1169             62             CALL PrioridadeInterrupcoes ;Chama a rotina que define as prioridades das interrupc
+                             oes
+0057 1163             63             CALL AtivaInterrupcoes ;Chama a rotina que ativa as interrupcoes necessarias
+0059 116D             64             CALL AtivaTemporizador  ;Chama a rotina que ativa o nosso temporizador
+                      65     
+                      66     ;Para guiar vou definir que as variaveis sao as seguintes:
+                      67     ;R8 sera o valor a colocar no display em binario
+                      68     ;R2 sera o numero de segundos
+                      69     ;R3 sera uma variavel booleana que nos diz se estamos a espera de uma resposta do utilizado
+                             r ou nao
+                      70     ;R4 sera a variavel dos milisegundo a mostrar (10 - R1)
+                      71     ;R5 sera o mesmo que R4 mas para os segundos
+                      72     ;R6 sera o valor dos segundos que faltavam para o utilizador dar a resposta
+                      73     ;R7 sera os milisegundos que faltavam para acabar o timer
+                      74     ;O A sera variavel assistente nas funcoes
+005B                  75     Principal:
+                      76             
+                      77             
+                      78             
+005B                  79     Inicializacoes:
+005B 75B0FF           80             MOV Inputs, #0ffh ;Configurar P3 como input
+005E 7590FD           81             MOV D1, #0fdh ;Colocar os displays como "-". FD ]e 11111101 o valor em binario que 
+                             coloca o display com o valor pretendido
+0061 C3               82             CLR C ;Limpar o carry
+0062 22               83             RET
+0063                  84     AtivaInterrupcoes:
+0063 75A887           85             MOV IE, #10000111b ;Ativa interrupcoes timer 0 e externa 1(p3.3) e 2 (p3.2)
+0066 D288             86             SETB IT0 ;A interrupcao externa sera detetada na transcicao descedente do clk 
+0068 22               87             RET
+                      88             
+0069                  89     PrioridadeInterrupcoes:
+0069 75B802           90             MOV IP, #00000010b ;O timer 0 tem a maior prioridade
+006C 22               91             RET
+                      92     
+                      93     
+006D                  94     AtivaTemporizador:
+006D 758901           95             MOV TMOD, #00000001b ;Ativa o temporizador no modo de leitura de 16 bits
+0070 758AF0           96             MOV TL0, #TempoL        ;Valor do byte menos significativo
+0073 758CD8           97             MOV TH0, #TempoH        ;Valor do byte mais significativo
+0076 780A             98             MOV R0, #TempoInicial   ;Indica o numero de contagens de 10ms que terao de ser real
+                             izadas para fazer alguma alteracao, neste caso 10, 100 milesimos de segundo, ou 0.1s
+0078 D28C             99             SETB TR0                                ;Ativa o temporizador 0, para fazer contage
+                             ns de 10ms
+007A 22              100             RET
+                     101             
+                     102             
+                     103     ;Tratamento da interrupcao externa 1, ou seja, quando algum dos botoes de resposta foi aper
+                             tado
+007B                 104     InterrupcaoBotaoResposta:
+007B                 105             JB R3, ObterResposta    ;Se estamos a espera de uma resposta e o utilizador pressio
+                             na um resposta chamamos a rotina que obtem a resposta
+*** ____________________________________^
+*** ERROR #A22 IN 105 (Backupassembly.a51, LINE 105): EXPRESSION TYPE DOES NOT MATCH INSTRUCTION
+                     106             ;Se nao estamos a espera de uma reposta nao fazemos nada
+007B 32              107             RETI
+                     108     
+007C                 109     ObterResposta:
+                     110             ;Vamos comparar com todos os pins de resposta para ver qual botao de resposta foi pressionado
+007C                 111             JNB @BA, RepostaA
+*** _____________________________________^
+*** ______________________________________^
+*** ERROR #A22 IN 111 (Backupassembly.a51, LINE 111): EXPRESSION TYPE DOES NOT MATCH INSTRUCTION
+A51 MACRO ASSEMBLER  BACKUPASSEMBLY                                                       05/19/2024 23:30:17 PAGE     3
+
+*** ERROR #A9 IN 111 (Backupassembly.a51, LINE 111): SYNTAX ERROR
+007C                 112             JNB @BB, RespostaB
+*** _____________________________________^
+*** ______________________________________^
+*** __________________________________________^
+*** ERROR #A22 IN 112 (Backupassembly.a51, LINE 112): EXPRESSION TYPE DOES NOT MATCH INSTRUCTION
+*** ERROR #A9 IN 112 (Backupassembly.a51, LINE 112): SYNTAX ERROR
+*** ERROR #A45 IN 112 (Backupassembly.a51, LINE 112): UNDEFINED SYMBOL (PASS-2)
+007C                 113             JNB @BC, RespostaC
+*** _____________________________________^
+*** ______________________________________^
+*** __________________________________________^
+*** ERROR #A22 IN 113 (Backupassembly.a51, LINE 113): EXPRESSION TYPE DOES NOT MATCH INSTRUCTION
+*** ERROR #A9 IN 113 (Backupassembly.a51, LINE 113): SYNTAX ERROR
+*** ERROR #A45 IN 113 (Backupassembly.a51, LINE 113): UNDEFINED SYMBOL (PASS-2)
+007C                 114             JNB @BD, RepostaD
+*** _____________________________________^
+*** ______________________________________^
+*** __________________________________________^
+*** ERROR #A22 IN 114 (Backupassembly.a51, LINE 114): EXPRESSION TYPE DOES NOT MATCH INSTRUCTION
+*** ERROR #A9 IN 114 (Backupassembly.a51, LINE 114): SYNTAX ERROR
+*** ERROR #A45 IN 114 (Backupassembly.a51, LINE 114): UNDEFINED SYMBOL (PASS-2)
+007C 32              115             RETI
+                     116             
+007D                 117             RepostaA: ;Depois de saber qual foi pressionado passamos o valor da resposta para a nossa variavel e mudamos o booleano de esperar por resposta para false
+007D A80A            118             MOV R0, 0Ah
+007F AB00            119             MOV R3, 0
+0081 32              120             RETI
+                     121             
+007D                 122             RepostaA:
+*** _________________________________^
+*** ERROR #A8 IN 122 (Backupassembly.a51, LINE 122): ATTEMPT TO DEFINE AN ALREADY DEFINED LABEL
+0082 A80A            123             MOV R0, 0Ah
+0084 AB00            124             MOV R3, 0
+0086 32              125             RETI
+                     126     
+                     127     ;Tratamento da interrupcao externa 0, ou seja, do botao 1
+0087                 128     InterrupcaoBotao1:
+0087                 129             JNB R3, IniciarContador ;Se nao estamos a espera de uma resposta entao temos de inciar o contador#
+*** _____________________________________^
+*** ERROR #A22 IN 129 (Backupassembly.a51, LINE 129): EXPRESSION TYPE DOES NOT MATCH INSTRUCTION
+                     130             ;Se estamos a espera de uma resposta nao faz nada
+0087 32              131             RETI
+                     132             
+0088                 133     IniciarContador:
+0088 AC00            134             MOV R4, 0
+008A AD05            135             MOV R5, 5
+008C AB01            136             MOV R3, 1
+008E 32              137             RETI
+                     138     
+                     139     
+                     140     
+                     141     ;Tratamento da Interrupção de qaundo da overflow na contagem do timer0
+008F                 142     InterrupcaoTemp0:
+008F                 143             MOV TLO, #TempoL        ;Inicia a contagem de 10ms
+*** _____________________________________^
+*** ERROR #A45 IN 143 (Backupassembly.a51, LINE 143): UNDEFINED SYMBOL (PASS-2)
+0092 758CD8          144             MOV TH0, #TempoH        ;TL0 e TH0 guardam o n]umero para iniciar contagens
+0095 D80F            145             DJNZ R0, FIMIT0         ;Decrementa a variavel para fazer contagens de 0.1s e se nao for 0 continua a contagem 
+0097 780A            146             MOV R0, #TempoInicial ;Se for 0 significa que ja passaram 100ms entao fazemos o que e necessario
+0099                 147             JNB R3,FIMIT0
+*** _____________________________________^
+*** ERROR #A22 IN 147 (Backupassembly.a51, LINE 147): EXPRESSION TYPE DOES NOT MATCH INSTRUCTION
+0099 EC              148             MOV A, R4
+009A 6001            149             JZ SubSeg
+009C                 150             SUBB R4, 1
+A51 MACRO ASSEMBLER  BACKUPASSEMBLY                                                       05/19/2024 23:30:17 PAGE     4
+
+*** ______________________________________^
+*** ERROR #A40 IN 150 (Backupassembly.a51, LINE 150): INVALID REGISTER
+009C 32              151             RETI
+009D                 152             SubSeg:
+009D ED              153             MOV A, R5
+009E 6003            154             JZ terminarContador
+00A0                 155             SUBB R5, #1
+*** ______________________________________^
+*** ERROR #A40 IN 155 (Backupassembly.a51, LINE 155): INVALID REGISTER
+00A0 AC09            156             MOV R4, 09h
+00A2 32              157             RETI
+00A3                 158             terminarContador:
+00A3 AB00            159             MOV R3, 0
+00A5 32              160             RETI
+                     161             
+00A6                 162             FIMIT0:
+00A6 32              163             RETI
+                     164     End
+A51 MACRO ASSEMBLER  BACKUPASSEMBLY                                                       05/19/2024 23:30:17 PAGE     5
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E                   T Y P E  V A L U E   ATTRIBUTES
+
+ATIVAINTERRUPCOES. . . .  C ADDR   0063H   A   
+ATIVATEMPORIZADOR. . . .  C ADDR   006DH   A   
+B1 . . . . . . . . . . .  B ADDR   00B0H.2 A   
+BA . . . . . . . . . . .  B ADDR   00B0H.4 A   
+BB . . . . . . . . . . .  B ADDR   00B0H.5 A   
+BC . . . . . . . . . . .  B ADDR   00B0H.6 A   
+BD . . . . . . . . . . .  B ADDR   00B0H.7 A   
+BRESPOSTA. . . . . . . .  B ADDR   00B0H.3 A   
+D1 . . . . . . . . . . .  D ADDR   0090H   A   
+D1A. . . . . . . . . . .  B ADDR   0090H.0 A   
+D1B. . . . . . . . . . .  B ADDR   0090H.1 A   
+D1C. . . . . . . . . . .  B ADDR   0090H.2 A   
+D1D. . . . . . . . . . .  B ADDR   0090H.3 A   
+D1DP . . . . . . . . . .  B ADDR   0090H.7 A   
+D1E. . . . . . . . . . .  B ADDR   0090H.4 A   
+D1F. . . . . . . . . . .  B ADDR   0090H.5 A   
+D1G. . . . . . . . . . .  B ADDR   0090H.6 A   
+D2 . . . . . . . . . . .  D ADDR   00A0H   A   
+D2A. . . . . . . . . . .  B ADDR   00A0H.0 A   
+D2B. . . . . . . . . . .  B ADDR   00A0H.1 A   
+D2C. . . . . . . . . . .  B ADDR   00A0H.2 A   
+D2D. . . . . . . . . . .  B ADDR   00A0H.3 A   
+D2DP . . . . . . . . . .  B ADDR   00A0H.7 A   
+D2E. . . . . . . . . . .  B ADDR   00A0H.4 A   
+D2F. . . . . . . . . . .  B ADDR   00A0H.5 A   
+D2G. . . . . . . . . . .  B ADDR   00A0H.6 A   
+FIMIT0 . . . . . . . . .  C ADDR   00A6H   A   
+IE . . . . . . . . . . .  D ADDR   00A8H   A   
+INICIALIZACOES . . . . .  C ADDR   005BH   A   
+INICIARCONTADOR. . . . .  C ADDR   0088H   A   
+INICIO . . . . . . . . .  C ADDR   0050H   A   
+INPUTS . . . . . . . . .  D ADDR   00B0H   A   
+INTERRUPCAOBOTAO1. . . .  C ADDR   0087H   A   
+INTERRUPCAOBOTAORESPOSTA  C ADDR   007BH   A   
+INTERRUPCAOTEMP0 . . . .  C ADDR   008FH   A   
+IP . . . . . . . . . . .  D ADDR   00B8H   A   
+IT0. . . . . . . . . . .  B ADDR   0088H.0 A   
+OBTERRESPOSTA. . . . . .  C ADDR   007CH   A   
+P1 . . . . . . . . . . .  D ADDR   0090H   A   
+P2 . . . . . . . . . . .  D ADDR   00A0H   A   
+P3 . . . . . . . . . . .  D ADDR   00B0H   A   
+PRINCIPAL. . . . . . . .  C ADDR   005BH   A   
+PRIORIDADEINTERRUPCOES .  C ADDR   0069H   A   
+REPOSTAA . . . . . . . .  C ADDR   007DH   A   
+REPOSTAD . . . . . . . .    ----   -----       
+RESPOSTAB. . . . . . . .    ----   -----       
+RESPOSTAC. . . . . . . .    ----   -----       
+SP . . . . . . . . . . .  D ADDR   0081H   A   
+SUBSEG . . . . . . . . .  C ADDR   009DH   A   
+TEMPOH . . . . . . . . .  N NUMB   00D8H   A   
+TEMPOINICIAL . . . . . .  N NUMB   000AH   A   
+TEMPOL . . . . . . . . .  N NUMB   00F0H   A   
+TERMINARCONTADOR . . . .  C ADDR   00A3H   A   
+TH0. . . . . . . . . . .  D ADDR   008CH   A   
+TL0. . . . . . . . . . .  D ADDR   008AH   A   
+TLO. . . . . . . . . . .    ----   -----       
+TMOD . . . . . . . . . .  D ADDR   0089H   A   
+TR0. . . . . . . . . . .  B ADDR   0088H.4 A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 18 ERROR(S)

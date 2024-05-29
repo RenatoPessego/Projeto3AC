@@ -1,0 +1,321 @@
+C51 COMPILER V9.60.7.0   PROJETO3AC_C                                                      05/22/2024 16:02:30 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE PROJETO3AC_C
+OBJECT MODULE PLACED IN .\Objects\Projeto3AC_C.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Projeto3AC_C.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listi
+                    -ngs\Projeto3AC_C.lst) TABS(2) OBJECT(.\Objects\Projeto3AC_C.obj)
+
+line level    source
+
+   1          #include <reg51.h>
+   2          // Definição das constantes  /Definimos estas constantes para uma melhor manutencao do programa permitindo
+             --nos mudar o funcionamento do mesmo apenas alterando estes valores
+   3          #define ciclo100ms 10 
+   4          #define numeroCiclosMostrarResposta 20 //Por exemplo se quisermos fazer ciclos de 4s(2s para cada estado d
+             -o display) mudamos de 20 para 40 ou se quisermos mudar a contagem do relogio tbm o podemos fazer alterando apenas as nos
+             -sas constantes
+   5          
+   6          // Timer
+   7          #define TempoL 0xF0
+   8          #define TempoH 0xD8
+   9          
+  10          //pins usados
+  11          sbit B1 = P3^2;      // Botão 1
+  12          sbit BResposta = P3^3; // PIN de qualquer resposta
+  13          sbit BA = P3^4;      // Botão A
+  14          sbit BB = P3^5;      // Botão B
+  15          sbit BC = P3^6;      // Botão C
+  16          sbit BD = P3^7;      // Botão D
+  17          
+  18          
+  19          //Funcoes usadas
+  20          void ativaInterrupcoes(void);
+  21          void prioridadeInterrupcoes(void);
+  22          void ativaTemporizador(void);
+  23          void terminarcontador(void);
+  24          void atualizarDisplays(int, int);
+  25          void atualizarDisplayResposta(char);
+  26          
+  27          //Variaveis
+  28          int tempoInicial = ciclo100ms;    //Variavel que conta o numero de ciclos de 10 ms  //10 ciclos de 10ms para
+             - dar 100 ms
+  29          int segundos = 5;         //Segundos do contador  //segundos iniciais
+  30          int miliSegundos = 0;     //milisegundos do contador  //milisegundos iniciais
+  31          bit congelarTimer = 1;    //variavel booleana que nos diz se o timer esta parado a mostrar 5s //Inicialmente
+             - o timer esta "congelado"
+  32          bit esperarResposta = 0;   //variavel booleana que nos diz se esperamos uma resposta do utilizador ou nao  
+             -//Inicialmente nao esperamos uma resposta apenas um input do botao 1
+  33          int segundosRestantes = 5;  //Segundos restantes quando o utilizador respondeu  //Inicialmente restam 5 seg
+             -undos para responder
+  34          int miliSegundosRestantes = 0;  //milisegundos restantes quando o utilizador respondeu  //Inicialmente res
+             -tam 0 milisegundos para responder
+  35          int cicloMostrarResposta = numeroCiclosMostrarResposta; //contador que serve para realizar o ciclo de 1 em
+             - 1s  //inicalmente temos 20 ciclos de 10ms para dar 2s, 1 para cada estado do display
+  36          char Resposta = '0';  //Inicialmente nao temos uma resposta
+  37          
+  38          //Funcao primaria
+  39          void main(){
+  40   1        ativaInterrupcoes();    //Ativar as interrupcoes
+  41   1        prioridadeInterrupcoes();   //Atribuir as prioridades a cada interrupcao
+  42   1        ativaTemporizador();    //ativar o timer
+  43   1        while(1);     //ciclo da funcao principal, esperando pelas interrupcoes para reagir
+  44   1      }
+  45          
+C51 COMPILER V9.60.7.0   PROJETO3AC_C                                                      05/22/2024 16:02:30 PAGE 2   
+
+  46          void ativaInterrupcoes(){
+  47   1        IE = 0x87; // Ativa interrupções timer 0 e externas 1 (P3.3) e 0 (P3.2)
+  48   1         IT0 = 1; // A interrupção externa será detectada na transição descendente do clk 
+  49   1      }
+  50          void prioridadeInterrupcoes() {
+  51   1          IP = 0x01; // A interrupcao externa 0 tem a maior prioridade
+  52   1      }
+  53          
+  54          void ativaTemporizador() {
+  55   1          TMOD = 0x01; // Ativa o temporizador no modo de leitura de 16 bits
+  56   1          TL0 = 0xF0; // Valor do byte menos significativo
+  57   1          TH0 = 0xD8; // Valor do byte mais significativo
+  58   1          TR0 = 1; // Ativa o temporizador 0, para fazer contagens de 10ms
+  59   1        return;
+  60   1      }
+  61          
+  62          void Timer(void) interrupt 1 {
+  63   1          TL0 = 0xF0; // Valor do byte menos significativo
+  64   1          TH0 = 0xD8; // Valor do byte mais significativo
+  65   1        tempoInicial--;
+  66   1        if(tempoInicial > 0){  //Se o tempo inicial nao e 0 entao so decrementamos o tempo inicial e continuamos
+  67   2          return;
+  68   2        }
+  69   1        else{                   //Se nao resetamos o tempo inicial e verificamos se estamos a espera de uma resposta
+  70   2          tempoInicial = ciclo100ms;
+  71   2          if(esperarResposta){      //Se sim decrementamos o tempo conforme possivel
+  72   3          if(miliSegundos == 0){  //Se os milisegundos ja forem 0 decrementamos os segundos
+  73   4            if(segundos==0){      //Se tanto os milisegundos como os segundos sao 0 terminamos o contador
+  74   5              terminarcontador();
+  75   5            }
+  76   4            else{                 //Caso contrario decrementamos os segundos e colocamos os milisegundos a 9
+  77   5              segundos--;
+  78   5              miliSegundos = 9;
+  79   5            }
+  80   4          }
+  81   3          else{                 //Mas caso os milisegundos nao sejam 0 decrementamos milisegundos
+  82   4            miliSegundos--;
+  83   4          }
+  84   3          atualizarDisplays(segundos, miliSegundos);  //Chamamos a funcao que atualiza o display conforme o tempo d
+             -ado
+  85   3        }else if(congelarTimer){      //Se estamos no estado de congelar o timer a 5s entao mantemos o display com 5
+             - segundos e 0 milisegundos
+  86   3          atualizarDisplays(5, 0);
+  87   3        }
+  88   2        else{                     //Caso nao se espere uma resposta quer dizer que ja a temos logo vamos fazer o ciclo onde
+             - mostramos a resposta e o tempo restante para responder
+  89   3          cicloMostrarResposta--;
+  90   3          if(cicloMostrarResposta >= (numeroCiclosMostrarResposta/2)){  //Se o ciclo estiver entre 10 e 20 (1 e 2 
+             -segundos) mostramos o tempo restante
+  91   4            atualizarDisplays(segundosRestantes, miliSegundosRestantes);
+  92   4          }
+  93   3          else{  //Caso contrario mostramos a resposta dada atraves da funcao encarregue disso
+  94   4            if(cicloMostrarResposta == 0){
+  95   5              cicloMostrarResposta = numeroCiclosMostrarResposta;
+  96   5            }
+  97   4            atualizarDisplayResposta(Resposta); //Esta funcao ira colocar no display -. e a resposta dada pelo util
+             -izador
+  98   4          }
+  99   3        }
+ 100   2          
+ 101   2      }
+ 102   1      }
+C51 COMPILER V9.60.7.0   PROJETO3AC_C                                                      05/22/2024 16:02:30 PAGE 3   
+
+ 103          
+ 104          void atualizarDisplays(int segundos, int miliSegundos){  //Para colocar o tempo no display esta funcao rec
+             -ebee os segundos e os milisegundos e faz um switch para cada um deles
+ 105   1        switch(segundos){             //No caso dos segundos verifica que valor tem e coloca-o com o bit do . ativo par
+             -a ficar 0. por exemplo. 
+ 106   2          case 0:
+ 107   2            P1 = 0x40;            //Estes valores são apenas os equivalentes em hexadecimal dos codigos em binario nas ta
+             -belas do enunciado para cada valor
+ 108   2            break;
+ 109   2          case 1:
+ 110   2            P1 = 0x79;
+ 111   2            break;
+ 112   2          case 2:
+ 113   2            P1 = 0x24;
+ 114   2            break;
+ 115   2          case 3:
+ 116   2            P1 = 0x30;
+ 117   2            break;
+ 118   2          case 4:
+ 119   2            P1 = 0x19;
+ 120   2            break;
+ 121   2          case 5:
+ 122   2            P1 = 0x12;
+ 123   2            break;
+ 124   2          case 6:
+ 125   2            P1 = 0x02;
+ 126   2            break;
+ 127   2          case 7:
+ 128   2            P1 = 0x78;
+ 129   2            break;
+ 130   2          case 8:
+ 131   2            P1 = 0x00;
+ 132   2            break;
+ 133   2          case 9:
+ 134   2            P1 = 0x10;
+ 135   2            break;
+ 136   2          default:
+ 137   2            break;
+ 138   2        }
+ 139   1        switch(miliSegundos){     //Os milisegundos sao iguais aos segundos mas com o bit do . desativado para fica
+             -r com o resultado de 1.0 por exemplo
+ 140   2          case 0:
+ 141   2            P2 = 0xC0;
+ 142   2            break;
+ 143   2          case 1:
+ 144   2            P2 = 0xF9;
+ 145   2            break;
+ 146   2          case 2:
+ 147   2            P2 = 0xA4;
+ 148   2            break;
+ 149   2          case 3:
+ 150   2            P2 = 0xB0;
+ 151   2            break;
+ 152   2          case 4:
+ 153   2            P2 = 0x99;
+ 154   2            break;
+ 155   2          case 5:
+ 156   2            P2 = 0x92;
+ 157   2            break;
+ 158   2          case 6:
+ 159   2            P2 = 0x82;
+ 160   2            break;
+C51 COMPILER V9.60.7.0   PROJETO3AC_C                                                      05/22/2024 16:02:30 PAGE 4   
+
+ 161   2          case 7:
+ 162   2            P2 = 0xF8;
+ 163   2            break;
+ 164   2          case 8:
+ 165   2            P2 = 0x80;
+ 166   2            break;
+ 167   2          case 9:
+ 168   2            P2 = 0x90;
+ 169   2            break;
+ 170   2          default:
+ 171   2            break;
+ 172   2        }
+ 173   1        return;
+ 174   1      }
+ 175          void terminarcontador(){    //Esta funcao e chamada quando o tempo terminou e neste caso vamos...
+ 176   1        esperarResposta = 0;    //Deixar de esperar uma resposta visto que ja acabaou o tempo
+ 177   1        Resposta = '0';         //Atribuir uma resposta nula a resposta
+ 178   1        segundosRestantes = 0;  //Deixar os segundos e milisegundos restantes a 0
+ 179   1        miliSegundosRestantes = 0;
+ 180   1        atualizarDisplays(segundosRestantes, miliSegundosRestantes);  //Atualizar o display com estes valores
+ 181   1        return;
+ 182   1      }
+ 183          
+ 184          void atualizarDisplayResposta(char Resposta){   //PAra atualizar o display com a resposta e muito semelhant
+             -e a atualizar com os numeros
+ 185   1        P1 = 0x3F;    //Equivalente a -. que e comum a todas as respostas logo fica fora do switch por conveniencia
+ 186   1        switch(Resposta){         //VAmos fazer um switch com a resposta
+ 187   2          case 'A':             //E vamos colocar o valor correspondente a letra respondida no display 2, tal como acont
+             -ecia na funcao de mostrar o tempo
+ 188   2            P2 = 0x88;
+ 189   2            break;
+ 190   2          case 'B':
+ 191   2            P2 = 0x83;
+ 192   2            break;
+ 193   2          case 'C':
+ 194   2            P2 = 0xC6;
+ 195   2            break;
+ 196   2          case 'D':
+ 197   2            P2 = 0xA1;
+ 198   2            break;
+ 199   2          case '0':
+ 200   2            P2 = 0xBF;
+ 201   2            break;
+ 202   2          default:
+ 203   2            break;
+ 204   2        }
+ 205   1        return;
+ 206   1      }
+ 207          
+ 208          void botao1(void) interrupt 0{      //Quando o botao 1 e pressionado esta interrupcao e ativa
+ 209   1        if(esperarResposta == 0 && congelarTimer == 0){   //Se nao esperamos uma resposta  e o temporizador nao es
+             -ta congelado entao vamos congelar o timer e resetar o contador do ciclo de 100ms pois vamos resetar o timer
+ 210   2          tempoInicial = ciclo100ms;
+ 211   2          congelarTimer = 1;
+ 212   2          segundos = 5;
+ 213   2          miliSegundos = 0;
+ 214   2        }
+ 215   1        else if(esperarResposta == 0 && congelarTimer ==1){ //Se nao esperamos uma resposta mas o tempo ja esta c
+             -ongelado entao vamos comecar a esperar uma resposta e vamos descongelar o timer de forma a permitir o temporizador decre
+             -scer
+ 216   2          tempoInicial = ciclo100ms;    //Reiniciamos sempre o tempoInicial pois estamos a resetar o timer
+ 217   2          esperarResposta = 1;
+C51 COMPILER V9.60.7.0   PROJETO3AC_C                                                      05/22/2024 16:02:30 PAGE 5   
+
+ 218   2          congelarTimer = 0;
+ 219   2        }
+ 220   1        else if(esperarResposta == 1){    //Se esperamos uma resposta entao ao clicar no botao 1 o temporizador res
+             -eta para os 5 segundos e atualiza o display e ja nao esperamos uma resposta, apenas input do botao 1
+ 221   2          tempoInicial = ciclo100ms;    
+ 222   2          segundos = 5;
+ 223   2          miliSegundos = 0;
+ 224   2          atualizarDisplays(segundos, miliSegundos);
+ 225   2          congelarTimer = 1;
+ 226   2          esperarResposta = 0;
+ 227   2        }
+ 228   1      }
+ 229          
+ 230          void botaoRepostas(void) interrupt 2{ //Se o botao com as portas and para todos os botoes de resposta for 
+             -ativo quer dizer que alguma resposta foi pressionada
+ 231   1        if(esperarResposta){    //Neste caso se esperamos uma resposta entao deixamos de o fazer uma vez que acabam
+             -os de receber uma
+ 232   2          esperarResposta = 0;
+ 233   2          segundosRestantes = segundos;   //o tempo restante e o atual na hora que o botao foi clicado
+ 234   2          miliSegundosRestantes = miliSegundos;
+ 235   2          cicloMostrarResposta = numeroCiclosMostrarResposta;
+ 236   2      
+ 237   2          if(BA == 0){        //Verificamos qual dos botoes e que esta ativo e atribuimos a resposta na variavel corre
+             -spondente
+ 238   3            Resposta = 'A'; //Nota: Caso dois botoes sejam clicados simultanemante, no exato mesmo instante, o que 
+             -e extremamente improvavel e irrealista, a resposta dada sera por preferencia de ordem alfabetica
+ 239   3            return;
+ 240   3          }
+ 241   2          else if(BB == 0){
+ 242   3            Resposta = 'B';
+ 243   3            return;
+ 244   3          }
+ 245   2          else if(BC == 0){
+ 246   3            Resposta = 'C';
+ 247   3            return;
+ 248   3          }
+ 249   2          else if(BD == 0){
+ 250   3            Resposta = 'D';
+ 251   3            return;
+ 252   3          }
+ 253   2          else{
+ 254   3            Resposta = '0';
+ 255   3            return;
+ 256   3          }
+ 257   2        }
+ 258   1        else{
+ 259   2          return;
+ 260   2        }
+ 261   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    661    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     13    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      2    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

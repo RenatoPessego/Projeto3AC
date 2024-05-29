@@ -1,0 +1,535 @@
+A51 MACRO ASSEMBLER  PROJETO3AC                                                           05/21/2024 19:06:11 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN .\Objects\Projeto3AC.obj
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE Projeto3AC.a51 SET(SMALL) DEBUG PRINT(.\Listings\Projeto3AC.lst) OBJECT
+                      (.\Objects\Projeto3AC.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     ; Definição das constantes
+                       2     
+                       3     ; Display 1
+  0090                 4     D1 EQU P1
+                       5     
+                       6     ; Display 2
+  00A0                 7     D2 EQU P2
+                       8     
+                       9     
+                      10     ; Inputs
+  00B0                11     Inputs EQU P3
+  00B2                12     B1 EQU P3.2 ; Botão 1
+  00B3                13     BResposta EQU P3.3 ; PIN de qualquer resposta
+  00B4                14     BA EQU P3.4 ; Botão A
+  00B5                15     BB EQU P3.5 ; Botão B
+  00B6                16     BC EQU P3.6 ; Botão C
+  00B7                17     BD EQU P3.7 ; Botão D
+                      18     
+                      19     ; Timer
+  00F0                20     TempoL EQU 0xF0 ;F0D8 é 61656 em decimal que é quando da overflow no timer
+  00D8                21     TempoH EQU 0xD8
+  000A                22     TempoInicial EQU 0x0A ;
+                      23     
+                      24     ; Função principal
+0000                  25     ORG 0000h
+0000 804E             26     JMP Inicio
+                      27     
+                      28     ; Tratar interrupção externa 0
+----                  29     CSEG AT 0003h
+0003 01CA             30     JMP InterrupcaoBotao1
+                      31     
+                      32     ; Tratar interrupção externa 1
+----                  33     CSEG AT 0013h
+0013 8078             34     JMP InterrupcaoBotaoResposta
+                      35     
+                      36     ; Tratar a interrupção de temporização 0, para contar 10ms
+----                  37     CSEG AT 000Bh
+000B 01E7             38     JMP InterrupcaoTemp0
+                      39     
+                      40     ;Para guiar vou definir que as variaveis sao as seguintes:
+                      41     ;R7 sera o contador de 1 segundo que muda entre a resposta e o tempo restante
+                      42     ;R3 sera uma variavel booleana que nos diz se estamos a espera de uma resposta do utilizado
+                             r ou nao
+                      43     ;R4 sera a variavel dos milisegundo a mostrar
+                      44     ;R5 sera o mesmo que R4 mas para os segundos
+                      45     ;R1 sera o valor dos segundos que faltavam para o utilizador dar a resposta
+                      46     ;R2 sera os milisegundos que faltavam para acabar o timer
+                      47     ;R0 sera o tempo inicial
+                      48     ;R6 sera a resposta dada pelo utilizador
+                      49     ;O A sera variavel assistente nas funcoes
+                      50     
+----                  51     CSEG AT 0050h
+0050                  52     Inicio:
+0050 758107           53         MOV SP, #07h ; Endereço inicial do stack pointer
+0053 115F             54         CALL Inicializacoes ; Chama a rotina de inicializações
+0055 117B             55         CALL PrioridadeInterrupcoes ; Chama a rotina que define as prioridades das interrupções
+0057 1175             56         CALL AtivaInterrupcoes ; Chama a rotina que ativa as interrupções necessárias
+A51 MACRO ASSEMBLER  PROJETO3AC                                                           05/21/2024 19:06:11 PAGE     2
+
+0059 117F             57         CALL AtivaTemporizador ; Chama a rotina que ativa o temporizador
+005B 8000             58         SJMP Principal ; Vai para a função principal
+                      59     
+005D                  60     Principal:
+005D 80FE             61         SJMP Principal ; Loop principal infinito
+                      62     
+005F                  63     Inicializacoes:
+005F 75B0FF           64         MOV Inputs, #0FFh ; Configurar P3 como input
+0062 7590FD           65         MOV D1, #0FDh ; Colocar os displays como "-". FD é 11111101 em binário, valor que coloc
+                             a o display no valor pretendido
+0065 C3               66         CLR C ; Limpar o carry
+0066 7C00             67             MOV R4, #0
+0068 7905             68             MOV R1, #05h
+006A 7A00             69             MOV R2, #00h
+006C 7B00             70             MOV R3, #0
+006E 7D00             71             MOV R5, #0
+0070 7E0E             72             MOV R6, #0eh
+0072 7F00             73             MOV R7, #0
+                      74             
+0074 22               75         RET
+                      76     
+0075                  77     AtivaInterrupcoes:
+0075 75A887           78         MOV IE, #10000111b ; Ativa interrupções timer 0 e externas 1 (P3.3) e 0 (P3.2)
+0078 D288             79         SETB IT0 ; A interrupção externa será detectada na transição descendente do clk 
+007A 22               80         RET
+                      81     
+007B                  82     PrioridadeInterrupcoes:
+007B 75B801           83         MOV IP, #00000001b ; O timer 0 tem a maior prioridade
+007E 22               84         RET
+                      85     
+007F                  86     AtivaTemporizador:
+007F 758901           87         MOV TMOD, #00000001b ; Ativa o temporizador no modo de leitura de 16 bits
+0082 758AF0           88         MOV TL0, #TempoL ; Valor do byte menos significativo
+0085 758CD8           89         MOV TH0, #TempoH ; Valor do byte mais significativo
+0088 780A             90         MOV R0, #TempoInicial ; Indica o número de contagens de 10ms que terão de ser realizada
+                             s para fazer alguma alteração, neste caso 10, 100 milissegundos, ou 0.1s
+008A D28C             91         SETB TR0 ; Ativa o temporizador 0, para fazer contagens de 10ms
+008C 22               92         RET
+                      93     
+                      94     ; Tratamento da interrupção externa 1, ou seja, quando algum dos botões de resposta foi ape
+                             rtado
+008D                  95     InterrupcaoBotaoResposta:
+008D EB               96             MOV A, R3
+008E 7001             97         JNZ ObterResposta ; Se estamos à espera de uma resposta e o utilizador pressiona uma re
+                             sposta, chamamos a rotina que obtém a resposta
+                      98         ; Se não estamos à espera de uma resposta não fazemos nada
+0090 32               99         RETI
+                     100     
+0091                 101     ObterResposta:
+                     102         ; Vamos comparar com todos os pinos de resposta para ver qual botão de resposta foi pre
+                             ssionado
+0091 30B40A          103         JNB BA, RespostaA
+0094 30B512          104         JNB BB, RespostaB
+0097 30B61A          105         JNB BC, RespostaC
+009A 30B722          106         JNB BD, RespostaD
+009D 32              107         RETI
+                     108     
+009E                 109     RespostaA:  ;Se a resposta A for seleciona, coloca-se na variavel relacionada a resposta da
+                             da o valor A para conveniencia
+009E 7E0A            110         MOV R6, #0Ah
+00A0 7B00            111         MOV R3, #0          ;Deixamos de esperar uma resposta
+00A2 ED              112             MOV A, R5               ;Copiamos o tempo restante para as suas variáveis relaciona
+                             dads
+00A3 F9              113             MOV R1, A
+00A4 EC              114             MOV A, R4
+00A5 FA              115             MOV R2, A
+A51 MACRO ASSEMBLER  PROJETO3AC                                                           05/21/2024 19:06:11 PAGE     3
+
+00A6 7F13            116             MOV R7, #13h    ;Resetamos o timer de ciclo entre mostrar resposta e tempo restante
+00A8 32              117         RETI
+                     118     
+00A9                 119     RespostaB:                      ;Repetimos o mesmo processo para cada uma das diferentes re
+                             spostas
+00A9 7E0B            120         MOV R6, #0Bh
+00AB 7B00            121         MOV R3, #0
+00AD ED              122             MOV A, R5
+00AE F9              123             MOV R1, A
+00AF EC              124             MOV A, R4
+00B0 FA              125             MOV R2, A
+00B1 7F13            126             MOV R7, #13h
+00B3 32              127         RETI
+                     128     
+00B4                 129     RespostaC:
+00B4 7E0C            130         MOV R6, #0Ch
+00B6 7B00            131         MOV R3, #0
+00B8 ED              132             MOV A, R5
+00B9 F9              133             MOV R1, A
+00BA EC              134             MOV A, R4
+00BB FA              135             MOV R2, A
+00BC 7F13            136             MOV R7, #13h
+                     137     
+00BE 32              138         RETI
+                     139     
+00BF                 140     RespostaD:
+00BF 7E0D            141         MOV R6, #0Dh
+00C1 7B00            142         MOV R3, #0
+00C3 ED              143             MOV A, R5
+00C4 F9              144             MOV R1, A
+00C5 EC              145             MOV A, R4
+00C6 FA              146             MOV R2, A
+00C7 7F13            147             MOV R7, #13h
+00C9 32              148         RETI
+                     149     
+                     150     ; Tratamento da interrupção externa 0, ou seja, do botão 1
+00CA                 151     InterrupcaoBotao1:
+00CA ED              152             MOV A, R5
+00CB B40503          153         CJNE A, #05, IniciarContador ; Se não estamos à espera de uma resposta então temos de i
+                             niciar o contador
+00CE 8012            154         JMP ComecarContador;Se estamos à espera de uma resposta não faz nada
+00D0 32              155         RETI
+                     156     
+00D1                 157     IniciarContador:                ;Quando iniciamos o contador colocamos os segundos a 5 e  o
+                             s milisegundos a 0 e alteramos a variavel de esperar resposta para true
+00D1 A80A            158         MOV R0, TempoInicial
+00D3 7C00            159             MOV R4, #00h
+00D5 7D05            160         MOV R5, #05h
+00D7 7B00            161             MOV R3, #00h
+00D9 7E0E            162             MOV R6, #0eh
+00DB 31D1            163             CALL MostrarTimer
+00DD 7905            164             MOV R1, #05h
+00DF 7A00            165             MOV R2, #00h
+00E1 32              166         RETI
+00E2                 167     ComecarContador:                ;Quando iniciamos o contador colocamos os segundos a 5 e  o
+                             s milisegundos a 0 e alteramos a variavel de esperar resposta para true
+00E2 780A            168             MOV R0, #TempoInicial
+00E4 7B01            169         MOV R3, #01h
+                     170             
+00E6 32              171         RETI
+                     172     
+                     173     ; Tratamento da Interrupção de overflow na contagem do timer0
+00E7                 174     InterrupcaoTemp0:
+00E7 758AF0          175         MOV TL0, #TempoL ; Inicia a contagem de 10ms
+00EA 758CD8          176         MOV TH0, #TempoH ; TL0 e TH0 guardam o número para iniciar contagens
+00ED D865            177         DJNZ R0, FimIT0 ; Decrementa a variável para fazer contagens de 0.1s e se não for 0 con
+A51 MACRO ASSEMBLER  PROJETO3AC                                                           05/21/2024 19:06:11 PAGE     4
+
+                             tinua a contagem 
+00EF 780A            178          MOV R0, #TempoInicial ; Se for 0 significa que já passaram 100ms então fazemos o que é
+                              necessário
+00F1 EB              179         MOV A, R3           ;Vemos se estamos a espera de uma resposta, pois se nao entao estam
+                             os a mostrar a ultima resposta dada
+00F2 6017            180             JZ RespostaDada         
+00F4 31D1            181             CALL MostrarTimer ;Se não foi dada uma resposta metemos no display o tempo atual
+00F6 EC              182             MOV A, R4               ;Mas se estamos a espera de resposta vemos se os milisegund
+                             o sao 0
+00F7 6002            183         JZ SubSeg
+00F9 1C              184         DEC R4
+00FA 32              185         RETI
+                     186     
+00FB                 187     SubSeg:                         ;Se os milisegundos forem 0 entao subtraimos um segundo e c
+                             olocamos os milisegundos como 9
+00FB ED              188         MOV A, R5           ;Se os segundo tbm forem 0 entao terminamos o contador
+00FC 6004            189         JZ TerminarContador
+00FE 1D              190         DEC R5                      ;Caso contrario fazemos o esperado
+00FF 7C09            191         MOV R4, #09h
+0101 32              192         RETI
+                     193     
+0102                 194     TerminarContador:
+0102 7E00            195             MOV R6, #0              ;A resposta dada é nenhuma, de forma a mostrar -.- No displ
+                             ay
+0104 7B00            196         MOV R3, #00h        ;Neste caso ja nao estamos a espera de uma resposta pois acabou o t
+                             empo
+0106 7900            197             MOV R1, #0              ;os segundo e milisegundos restantes sao colocados a 0
+0108 7A00            198             MOV R2, #0
+010A 32              199         RETI
+010B                 200     RespostaDada:
+010B EF              201             MOV A, R7               ;Se não esperamos resposta então temos alguma resposta dada
+                              ou 0.
+010C C3              202             CLR C
+010D 940A            203             SUBB A, #0Ah
+010F 5044            204             JNC MostrarTempo;Se R7 for maior que 10 mostrar o tempo
+0111 8000            205             JMP MostrarResposta ;Se nao mostrar REsposta
+                     206     
+0113                 207     MostrarResposta:
+0113 BF0002          208             CJNE R7, #00h, continuarMostrarResposta
+0116 8039            209             JMP resetarCiclo
+0118                 210             continuarMostrarResposta:
+0118 1F              211             DEC R7                          ;Deccrementamos o contador
+0119 EE              212             MOV A, R6                       ;Vamos buscar o valor de resposta guardado
+011A B40A06          213             CJNE A, #0ah, naoA      ;Se for A mostramos -A no display. Os bits ficam invertidos
+                              dos dados no enunciado uma vez que aqui comeca do bit mais significativo para o menos, o contrario do dado na tabela
+011D 75903F          214             MOV D1, #00111111b 
+0120 75A088          215             MOV D2, #10001000b  
+0123                 216             naoA:
+0123 B40B06          217             CJNE A, #0bh, naoB      ;Se for B mostramos -B
+0126 75903F          218             MOV D1, #00111111b 
+0129 75A083          219             MOV D2, #10000011b 
+012C                 220             naoB:
+012C B40C06          221             CJNE A, #0ch, naoC      ;Se for C mostramos -C
+012F 75903F          222             MOV D1, #00111111b
+0132 75A0C6          223             MOV D2, #11000110b 
+0135                 224             naoC:
+0135 B40D06          225             CJNE A, #0dh, naoD      ;Se for D mostramos -D
+0138 75903F          226             MOV D1, #00111111b
+013B 75A0A1          227             MOV D2, #10100001b 
+013E                 228             naoD:
+013E B40E06          229             CJNE A, #0eh, naoe ;Se a resposta é e, isto significa que o timer foi resetado entã
+                             o continuamos a mostrar os 5 segundos restantes até o utilizador alterar R3 e começar a decrementar o timer
+0141 759012          230             MOV D1, #00010010b
+0144 75A0C0          231             MOV D2, #11000000b
+0147                 232             naoe:
+0147 B40006          233             CJNE A, #0, nao0_Resposta ;Se nao for nenhum mostramos -.-
+A51 MACRO ASSEMBLER  PROJETO3AC                                                           05/21/2024 19:06:11 PAGE     5
+
+014A 75903F          234             MOV D1, #00111111b
+014D 75A0BF          235             MOV D2, #10111111b  
+0150                 236             nao0_Resposta:
+0150 32              237             RETI
+0151                 238             resetarCiclo:
+0151 7F13            239             MOV R7, #13h
+0153 32              240             RETI
+0154                 241     FimIT0:
+0154 32              242             RETI
+                     243     
+0155                 244     MostrarTempo:
+0155 1F              245             DEC R7                          ;Deccrementamos o contador
+0156 EA              246             MOV A, R2                       ;Vemos os milisegundos guardados quando o utilizado
+                             r deu a resposta
+0157 B40003          247             CJNE A, #0, nao0        ;Se nao for 0 passa a frente
+015A 75A0C0          248             MOV D2, #11000000b      ;Se for colocamos no segundo display o 0
+015D                 249             nao0:
+015D B40103          250             CJNE A, #1, nao1        ;Fazemos o mesmo ate descobrirmos o valor dos milisegundos 
+                             a colocar no display2
+0160 75A0F9          251             MOV D2, #11111001b 
+0163                 252             nao1:
+0163 B40203          253             CJNE A, #2, nao2
+0166 75A0A4          254             MOV D2, #10100100b  
+0169                 255             nao2:
+0169 B40303          256             CJNE A, #3, nao3
+016C 75A0B0          257             MOV D2, #10110000b 
+016F                 258             nao3:
+016F B40403          259             CJNE A, #4, nao4
+0172 75A099          260             MOV D2, #10011001b 
+0175                 261             nao4:
+0175 B40503          262             CJNE A, #5, nao5
+0178 75A092          263             MOV D2, #10010010b 
+017B                 264             nao5:
+017B B40603          265             CJNE A, #6, nao6
+017E 75A082          266             MOV D2, #10000010b 
+0181                 267             nao6:
+0181 B40703          268             CJNE A, #7, nao7
+0184 75A0F8          269             MOV D2, #11111000b 
+0187                 270             nao7:
+0187 B40803          271             CJNE A, #8, nao8
+018A 75A080          272             MOV D2, #10000000b 
+018D                 273             nao8:
+018D B40903          274             CJNE A, #9, nao9
+0190 75A090          275             MOV D2, #10010000b 
+0193                 276             nao9:
+0193 E9              277             MOV A, R1                               ;Agora fazemos o mesmo para os segundos so 
+                             que metemos o numero com o ponto a frente. Exemplo: 1.
+0194 B40003          278             CJNE A, #0, nao0_2
+0197 759040          279             MOV D1, #01000000b  
+019A                 280             nao0_2:
+019A B40103          281             CJNE A, #1, nao1_2
+019D 759079          282             MOV D1, #01111001b  
+01A0                 283             nao1_2:
+01A0 B40203          284             CJNE A, #2, nao2_2
+01A3 759024          285             MOV D1, #00100100b 
+01A6                 286             nao2_2:
+01A6 B40303          287             CJNE A, #3, nao3_2
+01A9 759030          288             MOV D1, #00110000b  
+01AC                 289             nao3_2:
+01AC B40403          290             CJNE A, #4, nao4_2
+01AF 759019          291             MOV D1, #00011001b  
+01B2                 292             nao4_2:
+01B2 B40503          293             CJNE A, #5, nao5_2
+01B5 759012          294             MOV D1, #00010010b  
+01B8                 295             nao5_2:
+01B8 B40603          296             CJNE A, #6, nao6_2
+A51 MACRO ASSEMBLER  PROJETO3AC                                                           05/21/2024 19:06:11 PAGE     6
+
+01BB 759002          297             MOV D1, #00000010b  
+01BE                 298             nao6_2:
+01BE B40703          299             CJNE A, #7, nao7_2
+01C1 759078          300             MOV D1, #01111000b  
+01C4                 301             nao7_2:
+01C4 B40803          302             CJNE A, #8, nao8_2
+01C7 759000          303             MOV D1, #00000000b
+01CA                 304             nao8_2:
+01CA B40903          305             CJNE A, #9, nao9_2
+01CD 759010          306             MOV D1, #00010000b 
+01D0                 307             nao9_2:
+01D0 32              308             RETI
+                     309             
+01D1                 310             MostrarTimer:
+01D1 EC              311             MOV A, R4                       ;Vemos os milisegundos guardados quando o utilizado
+                             r deu a resposta
+01D2 B40003          312             CJNE A, #0, nao0Timer   ;Se nao for 0 passa a frente
+01D5 75A0C0          313             MOV D2, #11000000b      ;Se for colocamos no segundo display o 0
+01D8                 314             nao0Timer:
+01D8 B40103          315             CJNE A, #1, nao1Timer   ;Fazemos o mesmo ate descobrirmos o valor dos milisegundos 
+                             a colocar no display2
+01DB 75A0F9          316             MOV D2, #11111001b  
+01DE                 317             nao1Timer:
+01DE B40203          318             CJNE A, #2, nao2Timer
+01E1 75A0A4          319             MOV D2, #10100100b 
+01E4                 320             nao2Timer:
+01E4 B40303          321             CJNE A, #3, nao3Timer
+01E7 75A0B0          322             MOV D2, #10110000b 
+01EA                 323             nao3Timer:
+01EA B40403          324             CJNE A, #4, nao4Timer
+01ED 75A099          325             MOV D2, #10011001b 
+01F0                 326             nao4Timer:
+01F0 B40503          327             CJNE A, #5, nao5Timer
+01F3 75A092          328             MOV D2, #10010010b 
+01F6                 329             nao5Timer:
+01F6 B40603          330             CJNE A, #6, nao6Timer
+01F9 75A082          331             MOV D2, #10000010b 
+01FC                 332             nao6Timer:
+01FC B40703          333             CJNE A, #7, nao7Timer
+01FF 75A0F8          334             MOV D2, #11111000b 
+0202                 335             nao7Timer:
+0202 B40803          336             CJNE A, #8, nao8Timer
+0205 75A080          337             MOV D2, #10000000b 
+0208                 338             nao8Timer:
+0208 B40903          339             CJNE A, #9, nao9Timer
+020B 75A090          340             MOV D2, #10010000b 
+020E                 341             nao9Timer:
+020E ED              342             MOV A, R5                               ;Agora fazemos o mesmo para os segundos so 
+                             que metemos o numero com o ponto a frente. Exemplo: 1.
+020F B40003          343             CJNE A, #0, nao0_2TImer
+0212 759040          344             MOV D1, #01000000b 
+0215                 345             nao0_2Timer:
+0215 B40103          346             CJNE A, #1, nao1_2Timer
+0218 759079          347             MOV D1, #01111001b 
+021B                 348             nao1_2Timer:
+021B B40203          349             CJNE A, #2, nao2_2Timer
+021E 759024          350             MOV D1, #00100100b 
+0221                 351             nao2_2Timer:
+0221 B40303          352             CJNE A, #3, nao3_2Timer
+0224 759030          353             MOV D1, #00110000b 
+0227                 354             nao3_2Timer:
+0227 B40403          355             CJNE A, #4, nao4_2Timer
+022A 759019          356             MOV D1, #00011001b 
+022D                 357             nao4_2Timer:
+022D B40503          358             CJNE A, #5, nao5_2Timer
+0230 759012          359             MOV D1, #00010010b 
+A51 MACRO ASSEMBLER  PROJETO3AC                                                           05/21/2024 19:06:11 PAGE     7
+
+0233                 360             nao5_2Timer:
+0233 B40603          361             CJNE A, #6, nao6_2Timer
+0236 759002          362             MOV D1, #00000010b 
+0239                 363             nao6_2Timer:
+0239 B40703          364             CJNE A, #7, nao7_2Timer
+023C 759078          365             MOV D1, #01111000b 
+023F                 366             nao7_2Timer:
+023F B40803          367             CJNE A, #8, nao8_2Timer
+0242 759000          368             MOV D1, #00000000b
+0245                 369             nao8_2Timer:
+0245 B40903          370             CJNE A, #9, nao9_2Timer
+0248 759010          371             MOV D1, #00010000b 
+024B                 372             nao9_2Timer:
+024B 22              373             RET
+                     374             
+                     375     END ; Final do programa
+A51 MACRO ASSEMBLER  PROJETO3AC                                                           05/21/2024 19:06:11 PAGE     8
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E                   T Y P E  V A L U E   ATTRIBUTES
+
+ATIVAINTERRUPCOES. . . .  C ADDR   0075H   A   
+ATIVATEMPORIZADOR. . . .  C ADDR   007FH   A   
+B1 . . . . . . . . . . .  B ADDR   00B0H.2 A   
+BA . . . . . . . . . . .  B ADDR   00B0H.4 A   
+BB . . . . . . . . . . .  B ADDR   00B0H.5 A   
+BC . . . . . . . . . . .  B ADDR   00B0H.6 A   
+BD . . . . . . . . . . .  B ADDR   00B0H.7 A   
+BRESPOSTA. . . . . . . .  B ADDR   00B0H.3 A   
+COMECARCONTADOR. . . . .  C ADDR   00E2H   A   
+CONTINUARMOSTRARRESPOSTA  C ADDR   0118H   A   
+D1 . . . . . . . . . . .  D ADDR   0090H   A   
+D2 . . . . . . . . . . .  D ADDR   00A0H   A   
+FIMIT0 . . . . . . . . .  C ADDR   0154H   A   
+IE . . . . . . . . . . .  D ADDR   00A8H   A   
+INICIALIZACOES . . . . .  C ADDR   005FH   A   
+INICIARCONTADOR. . . . .  C ADDR   00D1H   A   
+INICIO . . . . . . . . .  C ADDR   0050H   A   
+INPUTS . . . . . . . . .  D ADDR   00B0H   A   
+INTERRUPCAOBOTAO1. . . .  C ADDR   00CAH   A   
+INTERRUPCAOBOTAORESPOSTA  C ADDR   008DH   A   
+INTERRUPCAOTEMP0 . . . .  C ADDR   00E7H   A   
+IP . . . . . . . . . . .  D ADDR   00B8H   A   
+IT0. . . . . . . . . . .  B ADDR   0088H.0 A   
+MOSTRARRESPOSTA. . . . .  C ADDR   0113H   A   
+MOSTRARTEMPO . . . . . .  C ADDR   0155H   A   
+MOSTRARTIMER . . . . . .  C ADDR   01D1H   A   
+NAO0 . . . . . . . . . .  C ADDR   015DH   A   
+NAO0TIMER. . . . . . . .  C ADDR   01D8H   A   
+NAO0_2 . . . . . . . . .  C ADDR   019AH   A   
+NAO0_2TIMER. . . . . . .  C ADDR   0215H   A   
+NAO0_RESPOSTA. . . . . .  C ADDR   0150H   A   
+NAO1 . . . . . . . . . .  C ADDR   0163H   A   
+NAO1TIMER. . . . . . . .  C ADDR   01DEH   A   
+NAO1_2 . . . . . . . . .  C ADDR   01A0H   A   
+NAO1_2TIMER. . . . . . .  C ADDR   021BH   A   
+NAO2 . . . . . . . . . .  C ADDR   0169H   A   
+NAO2TIMER. . . . . . . .  C ADDR   01E4H   A   
+NAO2_2 . . . . . . . . .  C ADDR   01A6H   A   
+NAO2_2TIMER. . . . . . .  C ADDR   0221H   A   
+NAO3 . . . . . . . . . .  C ADDR   016FH   A   
+NAO3TIMER. . . . . . . .  C ADDR   01EAH   A   
+NAO3_2 . . . . . . . . .  C ADDR   01ACH   A   
+NAO3_2TIMER. . . . . . .  C ADDR   0227H   A   
+NAO4 . . . . . . . . . .  C ADDR   0175H   A   
+NAO4TIMER. . . . . . . .  C ADDR   01F0H   A   
+NAO4_2 . . . . . . . . .  C ADDR   01B2H   A   
+NAO4_2TIMER. . . . . . .  C ADDR   022DH   A   
+NAO5 . . . . . . . . . .  C ADDR   017BH   A   
+NAO5TIMER. . . . . . . .  C ADDR   01F6H   A   
+NAO5_2 . . . . . . . . .  C ADDR   01B8H   A   
+NAO5_2TIMER. . . . . . .  C ADDR   0233H   A   
+NAO6 . . . . . . . . . .  C ADDR   0181H   A   
+NAO6TIMER. . . . . . . .  C ADDR   01FCH   A   
+NAO6_2 . . . . . . . . .  C ADDR   01BEH   A   
+NAO6_2TIMER. . . . . . .  C ADDR   0239H   A   
+NAO7 . . . . . . . . . .  C ADDR   0187H   A   
+NAO7TIMER. . . . . . . .  C ADDR   0202H   A   
+NAO7_2 . . . . . . . . .  C ADDR   01C4H   A   
+NAO7_2TIMER. . . . . . .  C ADDR   023FH   A   
+NAO8 . . . . . . . . . .  C ADDR   018DH   A   
+A51 MACRO ASSEMBLER  PROJETO3AC                                                           05/21/2024 19:06:11 PAGE     9
+
+NAO8TIMER. . . . . . . .  C ADDR   0208H   A   
+NAO8_2 . . . . . . . . .  C ADDR   01CAH   A   
+NAO8_2TIMER. . . . . . .  C ADDR   0245H   A   
+NAO9 . . . . . . . . . .  C ADDR   0193H   A   
+NAO9TIMER. . . . . . . .  C ADDR   020EH   A   
+NAO9_2 . . . . . . . . .  C ADDR   01D0H   A   
+NAO9_2TIMER. . . . . . .  C ADDR   024BH   A   
+NAOA . . . . . . . . . .  C ADDR   0123H   A   
+NAOB . . . . . . . . . .  C ADDR   012CH   A   
+NAOC . . . . . . . . . .  C ADDR   0135H   A   
+NAOD . . . . . . . . . .  C ADDR   013EH   A   
+NAOE . . . . . . . . . .  C ADDR   0147H   A   
+OBTERRESPOSTA. . . . . .  C ADDR   0091H   A   
+P1 . . . . . . . . . . .  D ADDR   0090H   A   
+P2 . . . . . . . . . . .  D ADDR   00A0H   A   
+P3 . . . . . . . . . . .  D ADDR   00B0H   A   
+PRINCIPAL. . . . . . . .  C ADDR   005DH   A   
+PRIORIDADEINTERRUPCOES .  C ADDR   007BH   A   
+RESETARCICLO . . . . . .  C ADDR   0151H   A   
+RESPOSTAA. . . . . . . .  C ADDR   009EH   A   
+RESPOSTAB. . . . . . . .  C ADDR   00A9H   A   
+RESPOSTAC. . . . . . . .  C ADDR   00B4H   A   
+RESPOSTAD. . . . . . . .  C ADDR   00BFH   A   
+RESPOSTADADA . . . . . .  C ADDR   010BH   A   
+SP . . . . . . . . . . .  D ADDR   0081H   A   
+SUBSEG . . . . . . . . .  C ADDR   00FBH   A   
+TEMPOH . . . . . . . . .  N NUMB   00D8H   A   
+TEMPOINICIAL . . . . . .  N NUMB   000AH   A   
+TEMPOL . . . . . . . . .  N NUMB   00F0H   A   
+TERMINARCONTADOR . . . .  C ADDR   0102H   A   
+TH0. . . . . . . . . . .  D ADDR   008CH   A   
+TL0. . . . . . . . . . .  D ADDR   008AH   A   
+TMOD . . . . . . . . . .  D ADDR   0089H   A   
+TR0. . . . . . . . . . .  B ADDR   0088H.4 A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

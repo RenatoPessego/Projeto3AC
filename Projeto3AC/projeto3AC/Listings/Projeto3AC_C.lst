@@ -1,0 +1,24 @@
+C51 COMPILER V9.60.7.0   PROJETO3AC_C                                                      05/20/2024 19:36:21 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE PROJETO3AC_C
+OBJECT MODULE PLACED IN .\Objects\Projeto3AC_C.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Projeto3AC_C.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listi
+                    -ngs\Projeto3AC_C.lst) TABS(2) OBJECT(.\Objects\Projeto3AC_C.obj)
+
+line level    source
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   ----    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
